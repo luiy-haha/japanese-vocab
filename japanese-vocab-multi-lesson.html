@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日文詞彙溫習（多課版）</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Noto Sans TC', 'Noto Sans JP', sans-serif; background: #f8f6f2; }
+  .jp { font-family: 'Noto Sans JP', sans-serif; }
+  .card { transition: all 0.15s; }
+  .matched { opacity: 0.35; pointer-events: none; }
+  .correct { background: #dcfce7 !important; border-color: #16a34a !important; }
+  .wrong { background: #fee2e2 !important; border-color: #dc2626 !important; }
+</style>
+</head>
+<body class="min-h-screen">
+<div class="max-w-4xl mx-auto p-4 md:p-6">
+  <header class="text-center mb-4">
+    <h1 class="text-3xl md:text-4xl font-bold text-emerald-900">日文詞彙溫習</h1>
+    <p class="text-gray-600 mt-1">みんなの日本語 初級Ⅰ　第1～12課</p>
+  </header>
+
+  <!-- Lesson Selector -->
+  <div class="flex flex-wrap items-center justify-center gap-2 mb-4">
+    <label class="text-sm text-gray-600">課題：</label>
+    <select id="lesson-select" onchange="changeLesson(this.value)" class="border rounded-lg px-3 py-1.5 bg-white text-sm">
+      <option value="all">全部課題</option>
+      <option value="1">第1課 初めまして</option>
+      <option value="2">第2課 これから お世話に</option>
+      <option value="3">第3課 これを ください</option>
+      <option value="4">第4課 そちらは 何時までですか</option>
+      <option value="5">第5課 この電車は 甲子園へ</option>
+      <option value="6">第6課 いっしょに 行きませんか</option>
+      <option value="7">第7課 いらっしゃい</option>
+      <option value="8">第8課 そろそろ 失礼します</option>
+      <option value="9">第9課 わかります</option>
+      <option value="10">第10課 ナンプラー、ありますか</option>
+      <option value="11">第11課 これ、お願いします</option>
+      <option value="12">第12課 祇園祭は どうでしたか</option>
+    </select>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="flex flex-wrap gap-2 justify-center mb-4">
+    <button onclick="setMode('match')" id="nav-match" class="px-4 py-2 rounded-full text-sm font-medium bg-emerald-800 text-white">配對（初階）</button>
+    <button onclick="setMode('jp2cn')" id="nav-jp2cn" class="px-4 py-2 rounded-full text-sm font-medium bg-gray-200">日→中（中階）</button>
+    <button onclick="setMode('cn2jp')" id="nav-cn2jp" class="px-4 py-2 rounded-full text-sm font-medium bg-gray-200">中→日（高階）</button>
+    <button onclick="setMode('library')" id="nav-library" class="px-4 py-2 rounded-full text-sm font-medium bg-gray-200">温習庫</button>
+    <button onclick="setMode('wrong')" id="nav-wrong" class="px-4 py-2 rounded-full text-sm font-medium bg-gray-200">錯題庫 <span id="wrong-count" class="ml-1 bg-red-500 text-white text-xs px-1.5 rounded-full">0</span></button>
+    <button onclick="setMode('editor')" id="nav-editor" class="px-4 py-2 rounded-full text-sm font-medium bg-gray-200">詞彙管理</button>
+  </nav>
+
+  <div class="text-center text-sm text-gray-600 mb-3" id="stats"></div>
+
+  <div id="content" class="bg-white rounded-2xl shadow-lg p-5 md:p-6 min-h-[420px]">
+    <!-- dynamic -->
+  </div>
+</div>
+
+<script>
+// ==================== Lessons Data ====================
+// Simplified but representative vocab from the textbook images (handwritten notes ignored)
+const LESSONS = [
+  {
+    id: "1", name: "第1課 初めまして",
+    words: [
+      {id:"1-1", jp:"わたし", kanji:"", cn:"我"},
+      {id:"1-2", jp:"あなた", kanji:"", cn:"你、您"},
+      {id:"1-3", jp:"あのひと", kanji:"あの人", cn:"他、她、那個人"},
+      {id:"1-4", jp:"～さん", kanji:"", cn:"～先生、～小姐、～女士"},
+      {id:"1-5", jp:"～ちゃん", kanji:"", cn:"（小孩名字後的接尾詞）"},
+      {id:"1-6", jp:"～じん", kanji:"～人", cn:"～人（國籍）"},
+      {id:"1-7", jp:"せんせい", kanji:"先生", cn:"老師"},
+      {id:"1-8", jp:"きょうし", kanji:"教師", cn:"教師"},
+      {id:"1-9", jp:"がくせい", kanji:"学生", cn:"學生"},
+      {id:"1-10", jp:"かいしゃいん", kanji:"会社員", cn:"公司職員"},
+      {id:"1-11", jp:"しゃいん", kanji:"社員", cn:"社員"},
+      {id:"1-12", jp:"ぎんこういん", kanji:"銀行員", cn:"銀行行員"},
+      {id:"1-13", jp:"いしゃ", kanji:"医者", cn:"醫生"},
+      {id:"1-14", jp:"けんきゅうしゃ", kanji:"研究者", cn:"研究人員"},
+      {id:"1-15", jp:"だいがく", kanji:"大学", cn:"大學"},
+      {id:"1-16", jp:"びょういん", kanji:"病院", cn:"醫院"},
+      {id:"1-17", jp:"だれ", kanji:"", cn:"誰"},
+      {id:"1-18", jp:"～さい", kanji:"～歳", cn:"～歲"},
+      {id:"1-19", jp:"なんさい", kanji:"何歳", cn:"幾歲"},
+      {id:"1-20", jp:"はい", kanji:"", cn:"是、對"},
+      {id:"1-21", jp:"いいえ", kanji:"", cn:"不、不是"},
+      {id:"1-22", jp:"はじめまして", kanji:"初めまして", cn:"初次見面"},
+      {id:"1-23", jp:"～から きました", kanji:"～から 来ました", cn:"是從～來的"},
+      {id:"1-24", jp:"どうぞ よろしく", kanji:"", cn:"請多關照"},
+      {id:"1-25", jp:"しつれいですが", kanji:"失礼ですが", cn:"抱歉・請問……"},
+      {id:"1-26", jp:"おなまえは？", kanji:"お名前は？", cn:"您貴姓？"},
+      {id:"1-27", jp:"こちらは ～さんです", kanji:"", cn:"這位是～"},
+      {id:"1-28", jp:"アメリカ", kanji:"", cn:"美國"},
+      {id:"1-29", jp:"イギリス", kanji:"", cn:"英國"},
+      {id:"1-30", jp:"インド", kanji:"", cn:"印度"},
+      {id:"1-31", jp:"インドネシア", kanji:"", cn:"印尼"},
+      {id:"1-32", jp:"かんこく", kanji:"韓国", cn:"韓國"},
+      {id:"1-33", jp:"タイ", kanji:"", cn:"泰國"},
+      {id:"1-34", jp:"ちゅうごく", kanji:"中国", cn:"中國"},
+      {id:"1-35", jp:"ドイツ", kanji:"", cn:"德國"},
+      {id:"1-36", jp:"にほん", kanji:"日本", cn:"日本"},
+      {id:"1-37", jp:"ブラジル", kanji:"", cn:"巴西"}
+    ]
+  },
+  {
+    id: "2", name: "第2課 これから お世話に なります",
+    words: [
+      {id:"2-1", jp:"これ", kanji:"", cn:"這（離說話者近）"},
+      {id:"2-2", jp:"それ", kanji:"", cn:"那（離聽話者近）"},
+      {id:"2-3", jp:"あれ", kanji:"", cn:"那（離雙方都遠）"},
+      {id:"2-4", jp:"この～", kanji:"", cn:"這個～"},
+      {id:"2-5", jp:"その～", kanji:"", cn:"那個～"},
+      {id:"2-6", jp:"あの～", kanji:"", cn:"那個～"},
+      {id:"2-7", jp:"ほん", kanji:"本", cn:"書"},
+      {id:"2-8", jp:"じしょ", kanji:"辞書", cn:"字典"},
+      {id:"2-9", jp:"ざっし", kanji:"雑誌", cn:"雜誌"},
+      {id:"2-10", jp:"しんぶん", kanji:"新聞", cn:"報紙"},
+      {id:"2-11", jp:"ノート", kanji:"", cn:"筆記本"},
+      {id:"2-12", jp:"てちょう", kanji:"手帳", cn:"記事本"},
+      {id:"2-13", jp:"めいし", kanji:"名刺", cn:"名片"},
+      {id:"2-14", jp:"カード", kanji:"", cn:"卡片"},
+      {id:"2-15", jp:"えんぴつ", kanji:"鉛筆", cn:"鉛筆"},
+      {id:"2-16", jp:"ボールペン", kanji:"", cn:"原子筆"},
+      {id:"2-17", jp:"シャープペンシル", kanji:"", cn:"自動鉛筆"},
+      {id:"2-18", jp:"かぎ", kanji:"", cn:"鑰匙"},
+      {id:"2-19", jp:"とけい", kanji:"時計", cn:"鐘錶"},
+      {id:"2-20", jp:"かさ", kanji:"傘", cn:"傘"},
+      {id:"2-21", jp:"かばん", kanji:"", cn:"皮包、提包"},
+      {id:"2-22", jp:"シーディー", kanji:"CD", cn:"CD・光碟"},
+      {id:"2-23", jp:"テレビ", kanji:"", cn:"電視"},
+      {id:"2-24", jp:"ラジオ", kanji:"", cn:"收音機"},
+      {id:"2-25", jp:"カメラ", kanji:"", cn:"照相機"},
+      {id:"2-26", jp:"コンピューター", kanji:"", cn:"電腦"},
+      {id:"2-27", jp:"くるま", kanji:"車", cn:"汽車"},
+      {id:"2-28", jp:"つくえ", kanji:"机", cn:"桌子"},
+      {id:"2-29", jp:"いす", kanji:"", cn:"椅子"},
+      {id:"2-30", jp:"チョコレート", kanji:"", cn:"巧克力"},
+      {id:"2-31", jp:"コーヒー", kanji:"", cn:"咖啡"},
+      {id:"2-32", jp:"おみやげ", kanji:"お土産", cn:"伴手禮、土產"},
+      {id:"2-33", jp:"えいご", kanji:"英語", cn:"英語"},
+      {id:"2-34", jp:"にほんご", kanji:"日本語", cn:"日語"},
+      {id:"2-35", jp:"～ご", kanji:"～語", cn:"～語"},
+      {id:"2-36", jp:"なん", kanji:"何", cn:"什麼"},
+      {id:"2-37", jp:"そう", kanji:"", cn:"是的"},
+      {id:"2-38", jp:"これから おせわに なります", kanji:"これから お世話に なります", cn:"今後將承蒙您的照顧"},
+      {id:"2-39", jp:"あのう", kanji:"", cn:"那個……（用於客氣、躊躇時）"},
+      {id:"2-40", jp:"えっ", kanji:"", cn:"咦……（聽到意外消息時的驚歎）"},
+      {id:"2-41", jp:"どうぞ", kanji:"", cn:"請（用於勸別人做某事時）"},
+      {id:"2-42", jp:"ありがとう", kanji:"", cn:"謝謝"},
+      {id:"2-43", jp:"そうですか", kanji:"", cn:"這樣啊"},
+      {id:"2-44", jp:"ちがいます", kanji:"違います", cn:"不是"},
+      {id:"2-45", jp:"あ", kanji:"", cn:"啊（用於意識到什麼時）"}
+    ]
+  },
+  // 為節省篇幅，其餘課節以代表性詞彙為例，使用者可在「詞彙管理」中自由增刪
+  {
+    id: "3", name: "第3課 これを ください",
+    words: [
+      {id:"3-1", jp:"ここ", kanji:"", cn:"這裡"},
+      {id:"3-2", jp:"そこ", kanji:"", cn:"那裡"},
+      {id:"3-3", jp:"あそこ", kanji:"", cn:"那裡（遠）"},
+      {id:"3-4", jp:"どこ", kanji:"", cn:"哪裡"},
+      {id:"3-5", jp:"こちら", kanji:"", cn:"這邊（禮貌）"},
+      {id:"3-6", jp:"そちら", kanji:"", cn:"那邊（禮貌）"},
+      {id:"3-7", jp:"あちら", kanji:"", cn:"那邊（禮貌）"},
+      {id:"3-8", jp:"どちら", kanji:"", cn:"哪邊（禮貌）"},
+      {id:"3-9", jp:"きょうしつ", kanji:"教室", cn:"教室"},
+      {id:"3-10", jp:"しょくどう", kanji:"食堂", cn:"食堂、餐廳"},
+      {id:"3-11", jp:"じむしょ", kanji:"事務所", cn:"辦事處、事務所"},
+      {id:"3-12", jp:"かいぎしつ", kanji:"会議室", cn:"會議室"},
+      {id:"3-13", jp:"うけつけ", kanji:"受付", cn:"接待處、服務台"},
+      {id:"3-14", jp:"ロビー", kanji:"", cn:"大廳、休息室"},
+      {id:"3-15", jp:"へや", kanji:"部屋", cn:"房間"},
+      {id:"3-16", jp:"トイレ", kanji:"", cn:"廁所"},
+      {id:"3-17", jp:"かいだん", kanji:"階段", cn:"樓梯"},
+      {id:"3-18", jp:"エレベーター", kanji:"", cn:"電梯"},
+      {id:"3-19", jp:"エスカレーター", kanji:"", cn:"電扶梯"},
+      {id:"3-20", jp:"じどうはんばいき", kanji:"自動販売機", cn:"自動販賣機"},
+      {id:"3-21", jp:"でんわ", kanji:"電話", cn:"電話"},
+      {id:"3-22", jp:"くに", kanji:"国", cn:"國家、故鄉"},
+      {id:"3-23", jp:"かいしゃ", kanji:"会社", cn:"公司"},
+      {id:"3-24", jp:"うち", kanji:"", cn:"家"},
+      {id:"3-25", jp:"くつ", kanji:"靴", cn:"鞋子"},
+      {id:"3-26", jp:"ネクタイ", kanji:"", cn:"領帶"},
+      {id:"3-27", jp:"ワイン", kanji:"", cn:"葡萄酒"},
+      {id:"3-28", jp:"うりば", kanji:"売り場", cn:"賣場、專櫃"},
+      {id:"3-29", jp:"ちか", kanji:"地下", cn:"地下"},
+      {id:"3-30", jp:"～かい", kanji:"～階", cn:"～樓"},
+      {id:"3-31", jp:"なんがい", kanji:"何階", cn:"幾樓"},
+      {id:"3-32", jp:"～えん", kanji:"～円", cn:"～日圓"},
+      {id:"3-33", jp:"いくら", kanji:"", cn:"多少錢"},
+      {id:"3-34", jp:"ひゃく", kanji:"百", cn:"百"},
+      {id:"3-35", jp:"せん", kanji:"千", cn:"千"},
+      {id:"3-36", jp:"まん", kanji:"万", cn:"萬"},
+      {id:"3-37", jp:"いらっしゃいませ", kanji:"", cn:"歡迎光臨"},
+      {id:"3-38", jp:"みせてください", kanji:"見せてください", cn:"請讓我看一下"},
+      {id:"3-39", jp:"じゃ", kanji:"", cn:"那麼"},
+      {id:"3-40", jp:"ください", kanji:"", cn:"請給我"},
+      {id:"3-41", jp:"すみません", kanji:"", cn:"對不起／抱歉"},
+      {id:"3-42", jp:"どうも", kanji:"", cn:"謝謝"},
+      {id:"3-43", jp:"イタリア", kanji:"", cn:"義大利"},
+      {id:"3-44", jp:"スイス", kanji:"", cn:"瑞士"},
+      {id:"3-45", jp:"フランス", kanji:"", cn:"法國"},
+      {id:"3-46", jp:"ジャカルタ", kanji:"", cn:"雅加達"},
+      {id:"3-47", jp:"バンコク", kanji:"", cn:"曼谷"},
+      {id:"3-48", jp:"ベルリン", kanji:"", cn:"柏林"},
+      {id:"3-49", jp:"しんおおさか", kanji:"新大阪", cn:"新大阪"}
+    ]
+  },
+  {
+    id: "4", name: "第4課 そちらは 何時までですか",
+    words: [
+      {id:"4-1", jp:"おきます", kanji:"起きます", cn:"起床"},
+      {id:"4-2", jp:"ねます", kanji:"寝ます", cn:"睡覺"},
+      {id:"4-3", jp:"はたらきます", kanji:"働きます", cn:"工作"},
+      {id:"4-4", jp:"やすみます", kanji:"休みます", cn:"休息"},
+      {id:"4-5", jp:"べんきょうします", kanji:"勉強します", cn:"念書"},
+      {id:"4-6", jp:"おわります", kanji:"終わります", cn:"結束"},
+      {id:"4-7", jp:"デパート", kanji:"", cn:"百貨公司"},
+      {id:"4-8", jp:"ぎんこう", kanji:"銀行", cn:"銀行"},
+      {id:"4-9", jp:"ゆうびんきょく", kanji:"郵便局", cn:"郵局"},
+      {id:"4-10", jp:"としょかん", kanji:"図書館", cn:"圖書館"},
+      {id:"4-11", jp:"びじゅつかん", kanji:"美術館", cn:"美術館"},
+      {id:"4-12", jp:"いま", kanji:"今", cn:"現在"},
+      {id:"4-13", jp:"～じ", kanji:"～時", cn:"～點"},
+      {id:"4-14", jp:"～ふん", kanji:"～分", cn:"～分"},
+      {id:"4-15", jp:"はん", kanji:"半", cn:"半"},
+      {id:"4-16", jp:"なんじ", kanji:"何時", cn:"幾點"},
+      {id:"4-17", jp:"なんぷん", kanji:"何分", cn:"幾分"},
+      {id:"4-18", jp:"ごぜん", kanji:"午前", cn:"上午"},
+      {id:"4-19", jp:"ごご", kanji:"午後", cn:"下午"},
+      {id:"4-20", jp:"あさ", kanji:"朝", cn:"早上"},
+      {id:"4-21", jp:"ひる", kanji:"昼", cn:"白天"},
+      {id:"4-22", jp:"ばん", kanji:"晩", cn:"晚上"},
+      {id:"4-23", jp:"おととい", kanji:"一昨日", cn:"前天"},
+      {id:"4-24", jp:"きのう", kanji:"昨日", cn:"昨天"},
+      {id:"4-25", jp:"きょう", kanji:"今日", cn:"今天"},
+      {id:"4-26", jp:"あした", kanji:"明日", cn:"明天"},
+      {id:"4-27", jp:"あさって", kanji:"明後日", cn:"後天"},
+      {id:"4-28", jp:"けさ", kanji:"今朝", cn:"今天早上"},
+      {id:"4-29", jp:"こんばん", kanji:"今晩", cn:"今晚"},
+      {id:"4-30", jp:"やすみ", kanji:"休み", cn:"休息、休假"},
+      {id:"4-31", jp:"ひるやすみ", kanji:"昼休み", cn:"午休"},
+      {id:"4-32", jp:"しけん", kanji:"試験", cn:"考試"},
+      {id:"4-33", jp:"かいぎ", kanji:"会議", cn:"會議"},
+      {id:"4-34", jp:"えいが", kanji:"映画", cn:"電影"},
+      {id:"4-35", jp:"まいあさ", kanji:"毎朝", cn:"每天早上"},
+      {id:"4-36", jp:"まいばん", kanji:"毎晩", cn:"每天晚上"},
+      {id:"4-37", jp:"まいにち", kanji:"毎日", cn:"每天"},
+      {id:"4-38", jp:"げつようび", kanji:"月曜日", cn:"星期一"},
+      {id:"4-39", jp:"かようび", kanji:"火曜日", cn:"星期二"},
+      {id:"4-40", jp:"すいようび", kanji:"水曜日", cn:"星期三"},
+      {id:"4-41", jp:"もくようび", kanji:"木曜日", cn:"星期四"},
+      {id:"4-42", jp:"きんようび", kanji:"金曜日", cn:"星期五"},
+      {id:"4-43", jp:"どようび", kanji:"土曜日", cn:"星期六"},
+      {id:"4-44", jp:"にちようび", kanji:"日曜日", cn:"星期天"},
+      {id:"4-45", jp:"なんようび", kanji:"何曜日", cn:"星期幾"},
+      {id:"4-46", jp:"～から", kanji:"", cn:"從～"},
+      {id:"4-47", jp:"～まで", kanji:"", cn:"到～"},
+      {id:"4-48", jp:"～と～", kanji:"", cn:"～和～"},
+      {id:"4-49", jp:"ばんごう", kanji:"番号", cn:"號碼"},
+      {id:"4-50", jp:"なんばん", kanji:"何番", cn:"幾號"},
+      {id:"4-51", jp:"そちら", kanji:"", cn:"那邊、您那邊"},
+      {id:"4-52", jp:"たいへんですね", kanji:"大変ですね", cn:"真是辛苦啊"}
+    ]
+  },
+  {
+    id: "5", name: "第5課 この電車は 甲子園へ 行きますか",
+    words: [
+      {id:"5-1", jp:"いきます", kanji:"行きます", cn:"去"},
+      {id:"5-2", jp:"きます", kanji:"来ます", cn:"來"},
+      {id:"5-3", jp:"かえります", kanji:"帰ります", cn:"回"},
+      {id:"5-4", jp:"がっこう", kanji:"学校", cn:"學校"},
+      {id:"5-5", jp:"スーパー", kanji:"", cn:"超市"},
+      {id:"5-6", jp:"えき", kanji:"駅", cn:"車站"},
+      {id:"5-7", jp:"ひこうき", kanji:"飛行機", cn:"飛機"},
+      {id:"5-8", jp:"ふね", kanji:"船", cn:"船"},
+      {id:"5-9", jp:"でんしゃ", kanji:"電車", cn:"電車"},
+      {id:"5-10", jp:"ちかてつ", kanji:"地下鉄", cn:"地下鐵"},
+      {id:"5-11", jp:"しんかんせん", kanji:"新幹線", cn:"新幹線"},
+      {id:"5-12", jp:"バス", kanji:"", cn:"公車、巴士"},
+      {id:"5-13", jp:"タクシー", kanji:"", cn:"計程車"},
+      {id:"5-14", jp:"じてんしゃ", kanji:"自転車", cn:"自行車"},
+      {id:"5-15", jp:"あるいて", kanji:"歩いて", cn:"步行"},
+      {id:"5-16", jp:"ひと", kanji:"人", cn:"人"},
+      {id:"5-17", jp:"ともだち", kanji:"友達", cn:"朋友"},
+      {id:"5-18", jp:"かれ", kanji:"彼", cn:"他、男朋友"},
+      {id:"5-19", jp:"かのじょ", kanji:"彼女", cn:"她、女朋友"},
+      {id:"5-20", jp:"かぞく", kanji:"家族", cn:"家人、家屬"},
+      {id:"5-21", jp:"ひとりで", kanji:"一人で", cn:"一個人、自己"},
+      {id:"5-22", jp:"せんしゅう", kanji:"先週", cn:"上週"},
+      {id:"5-23", jp:"こんしゅう", kanji:"今週", cn:"本週"},
+      {id:"5-24", jp:"らいしゅう", kanji:"来週", cn:"下週"},
+      {id:"5-25", jp:"せんげつ", kanji:"先月", cn:"上個月"},
+      {id:"5-26", jp:"こんげつ", kanji:"今月", cn:"這個月"},
+      {id:"5-27", jp:"らいげつ", kanji:"来月", cn:"下個月"},
+      {id:"5-28", jp:"きょねん", kanji:"去年", cn:"去年"},
+      {id:"5-29", jp:"ことし", kanji:"今年", cn:"今年"},
+      {id:"5-30", jp:"らいねん", kanji:"来年", cn:"明年"},
+      {id:"5-31", jp:"～ねん", kanji:"～年", cn:"～年"},
+      {id:"5-32", jp:"なんねん", kanji:"何年", cn:"幾年"},
+      {id:"5-33", jp:"～がつ", kanji:"～月", cn:"～月"},
+      {id:"5-34", jp:"なんがつ", kanji:"何月", cn:"幾月"},
+      {id:"5-35", jp:"ついたち", kanji:"1日", cn:"1號"},
+      {id:"5-36", jp:"ふつか", kanji:"2日", cn:"2號、兩天"},
+      {id:"5-37", jp:"みっか", kanji:"3日", cn:"3號、三天"},
+      {id:"5-38", jp:"よっか", kanji:"4日", cn:"4號、四天"},
+      {id:"5-39", jp:"いつか", kanji:"5日", cn:"5號、五天"},
+      {id:"5-40", jp:"むいか", kanji:"6日", cn:"6號、六天"},
+      {id:"5-41", jp:"なのか", kanji:"7日", cn:"7號、七天"},
+      {id:"5-42", jp:"ようか", kanji:"8日", cn:"8號、八天"},
+      {id:"5-43", jp:"ここのか", kanji:"9日", cn:"9號、九天"},
+      {id:"5-44", jp:"とおか", kanji:"10日", cn:"10號、十天"},
+      {id:"5-45", jp:"じゅうよっか", kanji:"14日", cn:"14號、十四天"},
+      {id:"5-46", jp:"はつか", kanji:"20日", cn:"20號、二十天"},
+      {id:"5-47", jp:"にじゅうよっか", kanji:"24日", cn:"24號、二十四天"},
+      {id:"5-48", jp:"～にち", kanji:"～日", cn:"～號、～天"},
+      {id:"5-49", jp:"なんにち", kanji:"何日", cn:"幾號、幾天"},
+      {id:"5-50", jp:"いつ", kanji:"", cn:"什麼時候"},
+      {id:"5-51", jp:"たんじょうび", kanji:"誕生日", cn:"生日"},
+      {id:"5-52", jp:"どうも ありがとう ございました", kanji:"", cn:"非常感謝"},
+      {id:"5-53", jp:"どういたしまして", kanji:"", cn:"不客氣"},
+      {id:"5-54", jp:"～ばんせん", kanji:"～番線", cn:"第～號月台"},
+      {id:"5-55", jp:"つぎの", kanji:"次の", cn:"下一個、下一班"},
+      {id:"5-56", jp:"ふつう", kanji:"普通", cn:"普通車"},
+      {id:"5-57", jp:"きゅうこう", kanji:"急行", cn:"快車"},
+      {id:"5-58", jp:"とっきゅう", kanji:"特急", cn:"特快車"},
+      {id:"5-59", jp:"そうですね", kanji:"", cn:"是啊"},
+      {id:"5-60", jp:"こうしえん", kanji:"甲子園", cn:"甲子園"},
+      {id:"5-61", jp:"おおさかじょう", kanji:"大阪城", cn:"大阪城"}
+    ]
+  },
+  {
+    id: "6", name: "第6課 いっしょに 行きませんか",
+    words: [
+      {id:"6-1", jp:"たべます", kanji:"食べます", cn:"吃"},
+      {id:"6-2", jp:"のみます", kanji:"飲みます", cn:"喝"},
+      {id:"6-3", jp:"すいます", kanji:"吸います", cn:"吸（菸）"},
+      {id:"6-4", jp:"みます", kanji:"見ます", cn:"看"},
+      {id:"6-5", jp:"ききます", kanji:"聞きます", cn:"聽"},
+      {id:"6-6", jp:"よみます", kanji:"読みます", cn:"閱讀"},
+      {id:"6-7", jp:"かきます", kanji:"書きます", cn:"書寫"},
+      {id:"6-8", jp:"かいます", kanji:"買います", cn:"購買"},
+      {id:"6-9", jp:"とります", kanji:"撮ります", cn:"拍攝（照片）"},
+      {id:"6-10", jp:"します", kanji:"", cn:"做"},
+      {id:"6-11", jp:"あいます", kanji:"会います", cn:"見面"},
+      {id:"6-12", jp:"ごはん", kanji:"", cn:"白飯、飯"},
+      {id:"6-13", jp:"あさごはん", kanji:"朝ごはん", cn:"早餐"},
+      {id:"6-14", jp:"ひるごはん", kanji:"昼ごはん", cn:"午餐"},
+      {id:"6-15", jp:"ばんごはん", kanji:"晩ごはん", cn:"晚餐"},
+      {id:"6-16", jp:"パン", kanji:"", cn:"麵包"},
+      {id:"6-17", jp:"たまご", kanji:"卵", cn:"蛋"},
+      {id:"6-18", jp:"にく", kanji:"肉", cn:"肉"},
+      {id:"6-19", jp:"さかな", kanji:"魚", cn:"魚"},
+      {id:"6-20", jp:"やさい", kanji:"野菜", cn:"蔬菜"},
+      {id:"6-21", jp:"くだもの", kanji:"果物", cn:"水果"},
+      {id:"6-22", jp:"みず", kanji:"水", cn:"水"},
+      {id:"6-23", jp:"おちゃ", kanji:"お茶", cn:"茶"},
+      {id:"6-24", jp:"こうちゃ", kanji:"紅茶", cn:"紅茶"},
+      {id:"6-25", jp:"ぎゅうにゅう", kanji:"牛乳", cn:"牛奶"},
+      {id:"6-26", jp:"ジュース", kanji:"", cn:"果汁"},
+      {id:"6-27", jp:"ビール", kanji:"", cn:"啤酒"},
+      {id:"6-28", jp:"おさけ", kanji:"お酒", cn:"酒類、日本酒"},
+      {id:"6-29", jp:"たばこ", kanji:"", cn:"香菸"},
+      {id:"6-30", jp:"てがみ", kanji:"手紙", cn:"信"},
+      {id:"6-31", jp:"レポート", kanji:"", cn:"報告"},
+      {id:"6-32", jp:"しゃしん", kanji:"写真", cn:"照片"},
+      {id:"6-33", jp:"ビデオ", kanji:"", cn:"影片、錄影帶"},
+      {id:"6-34", jp:"みせ", kanji:"店", cn:"商店"},
+      {id:"6-35", jp:"にわ", kanji:"庭", cn:"庭院、院子"},
+      {id:"6-36", jp:"しゅくだい", kanji:"宿題", cn:"作業"},
+      {id:"6-37", jp:"テニス", kanji:"", cn:"網球"},
+      {id:"6-38", jp:"サッカー", kanji:"", cn:"足球"},
+      {id:"6-39", jp:"おはなみ", kanji:"お花見", cn:"賞花"},
+      {id:"6-40", jp:"なに", kanji:"何", cn:"什麼"},
+      {id:"6-41", jp:"いっしょに", kanji:"", cn:"一起"},
+      {id:"6-42", jp:"ちょっと", kanji:"", cn:"一會、一點"},
+      {id:"6-43", jp:"いつも", kanji:"", cn:"經常、總是"},
+      {id:"6-44", jp:"ときどき", kanji:"時々", cn:"有時"},
+      {id:"6-45", jp:"それから", kanji:"", cn:"然後"},
+      {id:"6-46", jp:"ええ", kanji:"", cn:"是的"},
+      {id:"6-47", jp:"いいですね", kanji:"", cn:"好啊"},
+      {id:"6-48", jp:"わかりました", kanji:"", cn:"我明白了"},
+      {id:"6-49", jp:"なんですか", kanji:"何ですか", cn:"什麼事？"},
+      {id:"6-50", jp:"じゃ、また", kanji:"", cn:"那麼・明天見"}
+    ]
+  },
+  {
+    id: "7", name: "第7課 いらっしゃい",
+    words: [
+      {id:"7-1", jp:"きります", kanji:"切ります", cn:"切、剪"},
+      {id:"7-2", jp:"おくります", kanji:"送ります", cn:"寄、送"},
+      {id:"7-3", jp:"あげます", kanji:"", cn:"給"},
+      {id:"7-4", jp:"もらいます", kanji:"", cn:"得到"},
+      {id:"7-5", jp:"かします", kanji:"貸します", cn:"借給"},
+      {id:"7-6", jp:"かります", kanji:"借ります", cn:"借"},
+      {id:"7-7", jp:"おしえます", kanji:"教えます", cn:"教、告訴"},
+      {id:"7-8", jp:"ならいます", kanji:"習います", cn:"學習"},
+      {id:"7-9", jp:"かけます", kanji:"", cn:"打（電話）"},
+      {id:"7-10", jp:"て", kanji:"手", cn:"手"},
+      {id:"7-11", jp:"はし", kanji:"箸", cn:"筷子"},
+      {id:"7-12", jp:"スプーン", kanji:"", cn:"湯匙"},
+      {id:"7-13", jp:"ナイフ", kanji:"", cn:"刀子"},
+      {id:"7-14", jp:"フォーク", kanji:"", cn:"叉子"},
+      {id:"7-15", jp:"はさみ", kanji:"", cn:"剪刀"},
+      {id:"7-16", jp:"パソコン", kanji:"", cn:"個人電腦"},
+      {id:"7-17", jp:"ケータイ", kanji:"", cn:"手機"},
+      {id:"7-18", jp:"メール", kanji:"", cn:"電子郵件"},
+      {id:"7-19", jp:"ねんがじょう", kanji:"年賀状", cn:"賀年卡"},
+      {id:"7-20", jp:"パンチ", kanji:"", cn:"打洞機"},
+      {id:"7-21", jp:"ホッチキス", kanji:"", cn:"釘書機"},
+      {id:"7-22", jp:"セロテープ", kanji:"", cn:"透明膠帶"},
+      {id:"7-23", jp:"けしゴム", kanji:"消しゴム", cn:"橡皮擦"},
+      {id:"7-24", jp:"かみ", kanji:"紙", cn:"紙"},
+      {id:"7-25", jp:"はな", kanji:"花", cn:"花"},
+      {id:"7-26", jp:"シャツ", kanji:"", cn:"襯衫"},
+      {id:"7-27", jp:"プレゼント", kanji:"", cn:"禮物"},
+      {id:"7-28", jp:"にもつ", kanji:"荷物", cn:"行李、包裹"},
+      {id:"7-29", jp:"おかね", kanji:"お金", cn:"錢"},
+      {id:"7-30", jp:"きっぷ", kanji:"切符", cn:"車票、入場券"},
+      {id:"7-31", jp:"クリスマス", kanji:"", cn:"聖誕節"},
+      {id:"7-32", jp:"ちち", kanji:"父", cn:"家父"},
+      {id:"7-33", jp:"はは", kanji:"母", cn:"家母"},
+      {id:"7-34", jp:"おとうさん", kanji:"お父さん", cn:"（別人的）父親"},
+      {id:"7-35", jp:"おかあさん", kanji:"お母さん", cn:"（別人的）母親"},
+      {id:"7-36", jp:"もう", kanji:"", cn:"已經"},
+      {id:"7-37", jp:"まだ", kanji:"", cn:"尚未、還沒"},
+      {id:"7-38", jp:"これから", kanji:"", cn:"從現在起"},
+      {id:"7-39", jp:"いらっしゃい", kanji:"", cn:"歡迎"},
+      {id:"7-40", jp:"どうぞ おあがりください", kanji:"", cn:"請進"},
+      {id:"7-41", jp:"しつれいします", kanji:"失礼します", cn:"打擾了"},
+      {id:"7-42", jp:"いかがですか", kanji:"", cn:"您覺得怎麼樣？"},
+      {id:"7-43", jp:"いただきます", kanji:"", cn:"我開動了"},
+      {id:"7-44", jp:"ごちそうさまでした", kanji:"", cn:"我吃飽了／謝謝招待"},
+      {id:"7-45", jp:"すてきですね", kanji:"", cn:"真不錯啊"},
+      {id:"7-46", jp:"スペイン", kanji:"", cn:"西班牙"}
+    ]
+  },
+  {
+    id: "8", name: "第8課 そろそろ 失礼します",
+    words: [
+      {id:"8-1", jp:"ハンサム", kanji:"", cn:"英俊"},
+      {id:"8-2", jp:"きれい", kanji:"", cn:"漂亮"},
+      {id:"8-3", jp:"しずか", kanji:"静か", cn:"安靜"},
+      {id:"8-4", jp:"にぎやか", kanji:"", cn:"熱鬧"},
+      {id:"8-5", jp:"ゆうめい", kanji:"有名", cn:"有名"},
+      {id:"8-6", jp:"しんせつ", kanji:"親切", cn:"親切"},
+      {id:"8-7", jp:"げんき", kanji:"元気", cn:"健康"},
+      {id:"8-8", jp:"ひま", kanji:"暇", cn:"有時間、有空"},
+      {id:"8-9", jp:"べんり", kanji:"便利", cn:"方便"},
+      {id:"8-10", jp:"すてき", kanji:"", cn:"非常好"},
+      {id:"8-11", jp:"おおきい", kanji:"大きい", cn:"大"},
+      {id:"8-12", jp:"ちいさい", kanji:"小さい", cn:"小"},
+      {id:"8-13", jp:"あたらしい", kanji:"新しい", cn:"新、新鮮"},
+      {id:"8-14", jp:"ふるい", kanji:"古い", cn:"舊、不新鮮"},
+      {id:"8-15", jp:"いい", kanji:"", cn:"好"},
+      {id:"8-16", jp:"わるい", kanji:"悪い", cn:"壞"},
+      {id:"8-17", jp:"あつい", kanji:"暑い", cn:"熱"},
+      {id:"8-18", jp:"さむい", kanji:"寒い", cn:"冷"},
+      {id:"8-19", jp:"つめたい", kanji:"冷たい", cn:"冰、涼"},
+      {id:"8-20", jp:"むずかしい", kanji:"難しい", cn:"難"},
+      {id:"8-21", jp:"やさしい", kanji:"易しい", cn:"簡單"},
+      {id:"8-22", jp:"たかい", kanji:"高い", cn:"貴、高"},
+      {id:"8-23", jp:"やすい", kanji:"安い", cn:"便宜"},
+      {id:"8-24", jp:"ひくい", kanji:"低い", cn:"低、矮"},
+      {id:"8-25", jp:"おもしろい", kanji:"", cn:"有趣"},
+      {id:"8-26", jp:"おいしい", kanji:"", cn:"好吃"},
+      {id:"8-27", jp:"いそがしい", kanji:"忙しい", cn:"忙"},
+      {id:"8-28", jp:"たのしい", kanji:"楽しい", cn:"愉快、高興"},
+      {id:"8-29", jp:"しろい", kanji:"白い", cn:"白色"},
+      {id:"8-30", jp:"くろい", kanji:"黒い", cn:"黑色"},
+      {id:"8-31", jp:"あかい", kanji:"赤い", cn:"紅色"},
+      {id:"8-32", jp:"あおい", kanji:"青い", cn:"藍色"},
+      {id:"8-33", jp:"さくら", kanji:"桜", cn:"櫻花"},
+      {id:"8-34", jp:"やま", kanji:"山", cn:"山"},
+      {id:"8-35", jp:"まち", kanji:"町", cn:"市鎮、街道"},
+      {id:"8-36", jp:"たべもの", kanji:"食べ物", cn:"食物"},
+      {id:"8-37", jp:"ところ", kanji:"所", cn:"地方"},
+      {id:"8-38", jp:"りょう", kanji:"寮", cn:"宿舍"},
+      {id:"8-39", jp:"レストラン", kanji:"", cn:"餐廳"},
+      {id:"8-40", jp:"せいかつ", kanji:"生活", cn:"生活"},
+      {id:"8-41", jp:"おしごと", kanji:"お仕事", cn:"工作"},
+      {id:"8-42", jp:"どう", kanji:"", cn:"怎麼樣"},
+      {id:"8-43", jp:"どんな～", kanji:"", cn:"什麼樣的～"},
+      {id:"8-44", jp:"とても", kanji:"", cn:"非常"},
+      {id:"8-45", jp:"あまり", kanji:"", cn:"不太～（用於否定句）"},
+      {id:"8-46", jp:"そして", kanji:"", cn:"而且"},
+      {id:"8-47", jp:"～が、～", kanji:"", cn:"～・但是～"}
+    ]
+  },
+  {
+    id: "9", name: "第9課 わかります",
+    words: [
+      {id:"9-1", jp:"わかります", kanji:"", cn:"懂、明白"},
+      {id:"9-2", jp:"あります", kanji:"", cn:"有"},
+      {id:"9-3", jp:"すき", kanji:"好き", cn:"喜歡"},
+      {id:"9-4", jp:"きらい", kanji:"嫌い", cn:"不喜歡"},
+      {id:"9-5", jp:"じょうず", kanji:"上手", cn:"好、擅長"},
+      {id:"9-6", jp:"へた", kanji:"下手", cn:"不好、不擅長"},
+      {id:"9-7", jp:"のみもの", kanji:"飲み物", cn:"飲料"},
+      {id:"9-8", jp:"りょうり", kanji:"料理", cn:"料理、菜餚"},
+      {id:"9-9", jp:"スポーツ", kanji:"", cn:"體育、運動"},
+      {id:"9-10", jp:"やきゅう", kanji:"野球", cn:"棒球"},
+      {id:"9-11", jp:"ダンス", kanji:"", cn:"舞"},
+      {id:"9-12", jp:"りょこう", kanji:"旅行", cn:"旅行"},
+      {id:"9-13", jp:"おんがく", kanji:"音楽", cn:"音樂"},
+      {id:"9-14", jp:"うた", kanji:"歌", cn:"歌"},
+      {id:"9-15", jp:"クラシック", kanji:"", cn:"古典音樂"},
+      {id:"9-16", jp:"ジャズ", kanji:"", cn:"爵士樂"},
+      {id:"9-17", jp:"コンサート", kanji:"", cn:"音樂會、演唱會"},
+      {id:"9-18", jp:"カラオケ", kanji:"", cn:"卡拉OK、KTV"},
+      {id:"9-19", jp:"かぶき", kanji:"歌舞伎", cn:"歌舞伎"},
+      {id:"9-20", jp:"え", kanji:"絵", cn:"畫"},
+      {id:"9-21", jp:"じ", kanji:"字", cn:"字"},
+      {id:"9-22", jp:"かんじ", kanji:"漢字", cn:"漢字"},
+      {id:"9-23", jp:"ひらがな", kanji:"", cn:"平假名"},
+      {id:"9-24", jp:"かたかな", kanji:"", cn:"片假名"},
+      {id:"9-25", jp:"ローマじ", kanji:"ローマ字", cn:"羅馬字母"},
+      {id:"9-26", jp:"こまかい おかね", kanji:"細かい お金", cn:"零錢"},
+      {id:"9-27", jp:"チケット", kanji:"", cn:"票"},
+      {id:"9-28", jp:"じかん", kanji:"時間", cn:"時間"},
+      {id:"9-29", jp:"ようじ", kanji:"用事", cn:"事情"},
+      {id:"9-30", jp:"やくそく", kanji:"約束", cn:"約定"},
+      {id:"9-31", jp:"アルバイト", kanji:"", cn:"打工"},
+      {id:"9-32", jp:"ごしゅじん", kanji:"ご主人", cn:"（別人的）丈夫"},
+      {id:"9-33", jp:"おっと", kanji:"夫", cn:"（自己的）丈夫"},
+      {id:"9-34", jp:"おくさん", kanji:"奥さん", cn:"（別人的）妻子"},
+      {id:"9-35", jp:"つま", kanji:"妻", cn:"（自己的）妻子"},
+      {id:"9-36", jp:"こども", kanji:"子ども", cn:"小孩"},
+      {id:"9-37", jp:"よく", kanji:"", cn:"很、非常"},
+      {id:"9-38", jp:"だいたい", kanji:"", cn:"大致、大概"},
+      {id:"9-39", jp:"たくさん", kanji:"", cn:"很多"},
+      {id:"9-40", jp:"すこし", kanji:"少し", cn:"一些、一點"},
+      {id:"9-41", jp:"ぜんぜん", kanji:"全然", cn:"完全～（後接否定）"},
+      {id:"9-42", jp:"はやく", kanji:"早く", cn:"早、快"},
+      {id:"9-43", jp:"～から", kanji:"", cn:"因為～"},
+      {id:"9-44", jp:"どうして", kanji:"", cn:"怎麼、為什麼"},
+      {id:"9-45", jp:"ああ", kanji:"", cn:"啊"},
+      {id:"9-46", jp:"いっしょに いかがですか", kanji:"", cn:"一起來怎麼樣？"},
+      {id:"9-47", jp:"ちょっと……", kanji:"", cn:"有點……（委婉拒絕）"},
+      {id:"9-48", jp:"だめですか", kanji:"", cn:"不行嗎？"},
+      {id:"9-49", jp:"また こんど おねがいします", kanji:"また 今度 お願いします", cn:"下一次請再邀我"},
+      {id:"9-50", jp:"かしてください", kanji:"貸してください", cn:"請借給我"},
+      {id:"9-51", jp:"いいですよ", kanji:"", cn:"好啊"},
+      {id:"9-52", jp:"ざんねんです", kanji:"残念です", cn:"很遺憾"}
+    ]
+  },
+  {
+    id: "10", name: "第10課 ナンプラー、ありますか",
+    words: [
+      {id:"10-1", jp:"あります", kanji:"", cn:"在、有（不會動的東西）"},
+      {id:"10-2", jp:"います", kanji:"", cn:"在、有（會活動的人、動物）"},
+      {id:"10-3", jp:"いろいろ", kanji:"", cn:"各式各樣"},
+      {id:"10-4", jp:"おとこのひと", kanji:"男の人", cn:"男人"},
+      {id:"10-5", jp:"おんなのひと", kanji:"女の人", cn:"女人"},
+      {id:"10-6", jp:"おとこのこ", kanji:"男の子", cn:"男孩"},
+      {id:"10-7", jp:"おんなのこ", kanji:"女の子", cn:"女孩"},
+      {id:"10-8", jp:"いぬ", kanji:"犬", cn:"狗"},
+      {id:"10-9", jp:"ねこ", kanji:"猫", cn:"貓"},
+      {id:"10-10", jp:"パンダ", kanji:"", cn:"貓熊"},
+      {id:"10-11", jp:"ぞう", kanji:"象", cn:"大象"},
+      {id:"10-12", jp:"き", kanji:"木", cn:"樹木"},
+      {id:"10-13", jp:"もの", kanji:"物", cn:"東西"},
+      {id:"10-14", jp:"でんち", kanji:"電池", cn:"電池"},
+      {id:"10-15", jp:"はこ", kanji:"箱", cn:"箱子"},
+      {id:"10-16", jp:"スイッチ", kanji:"", cn:"開關"},
+      {id:"10-17", jp:"れいぞうこ", kanji:"冷蔵庫", cn:"冰箱"},
+      {id:"10-18", jp:"テーブル", kanji:"", cn:"餐桌、桌子"},
+      {id:"10-19", jp:"ベッド", kanji:"", cn:"床"},
+      {id:"10-20", jp:"たな", kanji:"棚", cn:"架子"},
+      {id:"10-21", jp:"ドア", kanji:"", cn:"門"},
+      {id:"10-22", jp:"まど", kanji:"窓", cn:"窗戶"},
+      {id:"10-23", jp:"ポスト", kanji:"", cn:"郵筒、信箱"},
+      {id:"10-24", jp:"ビル", kanji:"", cn:"大樓"},
+      {id:"10-25", jp:"エーティーエム", kanji:"ATM", cn:"自動櫃員機"},
+      {id:"10-26", jp:"コンビニ", kanji:"", cn:"便利商店、超商"},
+      {id:"10-27", jp:"こうえん", kanji:"公園", cn:"公園"},
+      {id:"10-28", jp:"きっさてん", kanji:"喫茶店", cn:"咖啡店"},
+      {id:"10-29", jp:"～や", kanji:"～屋", cn:"～店"},
+      {id:"10-30", jp:"のりば", kanji:"乗り場", cn:"乘車處"},
+      {id:"10-31", jp:"けん", kanji:"県", cn:"縣"},
+      {id:"10-32", jp:"うえ", kanji:"上", cn:"上"},
+      {id:"10-33", jp:"した", kanji:"下", cn:"下"},
+      {id:"10-34", jp:"まえ", kanji:"前", cn:"前"},
+      {id:"10-35", jp:"うしろ", kanji:"", cn:"後"},
+      {id:"10-36", jp:"みぎ", kanji:"右", cn:"右"},
+      {id:"10-37", jp:"ひだり", kanji:"左", cn:"左"},
+      {id:"10-38", jp:"なか", kanji:"中", cn:"中間、裡面"},
+      {id:"10-39", jp:"そと", kanji:"外", cn:"外面"},
+      {id:"10-40", jp:"となり", kanji:"隣", cn:"旁邊"},
+      {id:"10-41", jp:"ちかく", kanji:"近く", cn:"附近"},
+      {id:"10-42", jp:"あいだ", kanji:"間", cn:"～之間"},
+      {id:"10-43", jp:"～や～", kanji:"", cn:"～和～（等）"},
+      {id:"10-44", jp:"すみません", kanji:"", cn:"謝謝你"},
+      {id:"10-45", jp:"ナンプラー", kanji:"", cn:"魚露"},
+      {id:"10-46", jp:"コーナー", kanji:"", cn:"專區、專櫃"},
+      {id:"10-47", jp:"いちばん した", kanji:"一番 下", cn:"最下面"}
+    ]
+  },
+  {
+    id: "11", name: "第11課 これ、お願いします",
+    words: [
+      {id:"11-1", jp:"います", kanji:"", cn:"有（小孩）"},
+      {id:"11-2", jp:"かかります", kanji:"", cn:"花費（時間、金錢等）"},
+      {id:"11-3", jp:"やすみます", kanji:"休みます", cn:"（向公司）請假"},
+      {id:"11-4", jp:"ひとつ", kanji:"", cn:"一個"},
+      {id:"11-5", jp:"ふたつ", kanji:"", cn:"兩個"},
+      {id:"11-6", jp:"みっつ", kanji:"", cn:"三個"},
+      {id:"11-7", jp:"よっつ", kanji:"", cn:"四個"},
+      {id:"11-8", jp:"いつつ", kanji:"", cn:"五個"},
+      {id:"11-9", jp:"むっつ", kanji:"", cn:"六個"},
+      {id:"11-10", jp:"ななつ", kanji:"", cn:"七個"},
+      {id:"11-11", jp:"やっつ", kanji:"", cn:"八個"},
+      {id:"11-12", jp:"ここのつ", kanji:"", cn:"九個"},
+      {id:"11-13", jp:"とお", kanji:"", cn:"十個"},
+      {id:"11-14", jp:"いくつ", kanji:"", cn:"多少"},
+      {id:"11-15", jp:"ひとり", kanji:"", cn:"一個人"},
+      {id:"11-16", jp:"ふたり", kanji:"", cn:"兩個人"},
+      {id:"11-17", jp:"～にん", kanji:"～人", cn:"～人"},
+      {id:"11-18", jp:"～だい", kanji:"～台", cn:"～台"},
+      {id:"11-19", jp:"～まい", kanji:"～枚", cn:"～枚"},
+      {id:"11-20", jp:"～かい", kanji:"～回", cn:"～次"},
+      {id:"11-21", jp:"りんご", kanji:"", cn:"蘋果"},
+      {id:"11-22", jp:"みかん", kanji:"", cn:"橘子"},
+      {id:"11-23", jp:"サンドイッチ", kanji:"", cn:"三明治"},
+      {id:"11-24", jp:"カレー", kanji:"", cn:"咖哩（飯）"},
+      {id:"11-25", jp:"アイスクリーム", kanji:"", cn:"冰淇淋"},
+      {id:"11-26", jp:"きって", kanji:"切手", cn:"郵票"},
+      {id:"11-27", jp:"はがき", kanji:"", cn:"明信片"},
+      {id:"11-28", jp:"ふうとう", kanji:"封筒", cn:"信封"},
+      {id:"11-29", jp:"りょうしん", kanji:"両親", cn:"父母、雙親"},
+      {id:"11-30", jp:"きょうだい", kanji:"兄弟", cn:"兄弟姊妹"},
+      {id:"11-31", jp:"あに", kanji:"兄", cn:"（自己的）哥哥"},
+      {id:"11-32", jp:"おにいさん", kanji:"お兄さん", cn:"（別人的）哥哥"},
+      {id:"11-33", jp:"あね", kanji:"姉", cn:"（自己的）姊姊"},
+      {id:"11-34", jp:"おねえさん", kanji:"お姉さん", cn:"（別人的）姊姊"},
+      {id:"11-35", jp:"おとうと", kanji:"弟", cn:"（自己的）弟弟"},
+      {id:"11-36", jp:"おとうとさん", kanji:"弟さん", cn:"（別人的）弟弟"},
+      {id:"11-37", jp:"いもうと", kanji:"妹", cn:"（自己的）妹妹"},
+      {id:"11-38", jp:"いもうとさん", kanji:"妹さん", cn:"（別人的）妹妹"},
+      {id:"11-39", jp:"がいこく", kanji:"外国", cn:"外國"},
+      {id:"11-40", jp:"りゅうがくせい", kanji:"留学生", cn:"留學生"},
+      {id:"11-41", jp:"クラス", kanji:"", cn:"班級"},
+      {id:"11-42", jp:"～じかん", kanji:"～時間", cn:"～小時"},
+      {id:"11-43", jp:"～しゅうかん", kanji:"～週間", cn:"～星期"},
+      {id:"11-44", jp:"～かげつ", kanji:"～か月", cn:"～個月"},
+      {id:"11-45", jp:"～ねん", kanji:"～年", cn:"～年"},
+      {id:"11-46", jp:"～ぐらい", kanji:"", cn:"～左右、大約～"},
+      {id:"11-47", jp:"どのくらい", kanji:"", cn:"多久時間"},
+      {id:"11-48", jp:"ぜんぶで", kanji:"全部で", cn:"一共、合計"},
+      {id:"11-49", jp:"みんな", kanji:"", cn:"全部、大家"},
+      {id:"11-50", jp:"～だけ", kanji:"", cn:"只～"},
+      {id:"11-51", jp:"いい てんきですね", kanji:"いい 天気ですね", cn:"天氣真好啊"},
+      {id:"11-52", jp:"おでかけですか", kanji:"お出かけですか", cn:"您要外出啊？"},
+      {id:"11-53", jp:"ちょっと ～まで", kanji:"", cn:"我去～一下"},
+      {id:"11-54", jp:"いってらっしゃい", kanji:"行ってらっしゃい", cn:"請慢走"},
+      {id:"11-55", jp:"いってきます", kanji:"行ってきます", cn:"我出門了"},
+      {id:"11-56", jp:"ふなびん", kanji:"船便", cn:"船運"},
+      {id:"11-57", jp:"こうくうびん", kanji:"航空便", cn:"空運"},
+      {id:"11-58", jp:"おねがいします", kanji:"お願いします", cn:"拜託了"},
+      {id:"11-59", jp:"かしこまりました", kanji:"", cn:"明白了"},
+      {id:"11-60", jp:"オーストラリア", kanji:"", cn:"澳洲"}
+    ]
+  },
+  {
+    id: "12", name: "第12課 祇園祭は どうでしたか",
+    words: [
+      {id:"12-1", jp:"かんたん", kanji:"簡単", cn:"簡單"},
+      {id:"12-2", jp:"ちかい", kanji:"近い", cn:"近"},
+      {id:"12-3", jp:"とおい", kanji:"遠い", cn:"遠"},
+      {id:"12-4", jp:"はやい", kanji:"速い", cn:"快、早"},
+      {id:"12-5", jp:"おそい", kanji:"遅い", cn:"慢"},
+      {id:"12-6", jp:"おおい", kanji:"多い", cn:"多"},
+      {id:"12-7", jp:"すくない", kanji:"少ない", cn:"少"},
+      {id:"12-8", jp:"あたたかい", kanji:"暖かい", cn:"溫暖、溫"},
+      {id:"12-9", jp:"すずしい", kanji:"涼しい", cn:"涼快"},
+      {id:"12-10", jp:"あまい", kanji:"甘い", cn:"甜"},
+      {id:"12-11", jp:"からい", kanji:"辛い", cn:"辣"},
+      {id:"12-12", jp:"おもい", kanji:"重い", cn:"重"},
+      {id:"12-13", jp:"かるい", kanji:"軽い", cn:"輕"},
+      {id:"12-14", jp:"いい", kanji:"", cn:"（咖啡）好"},
+      {id:"12-15", jp:"きせつ", kanji:"季節", cn:"季節"},
+      {id:"12-16", jp:"はる", kanji:"春", cn:"春天"},
+      {id:"12-17", jp:"なつ", kanji:"夏", cn:"夏天"},
+      {id:"12-18", jp:"あき", kanji:"秋", cn:"秋天"},
+      {id:"12-19", jp:"ふゆ", kanji:"冬", cn:"冬天"},
+      {id:"12-20", jp:"てんき", kanji:"天気", cn:"天氣"},
+      {id:"12-21", jp:"あめ", kanji:"雨", cn:"雨"},
+      {id:"12-22", jp:"ゆき", kanji:"雪", cn:"雪"},
+      {id:"12-23", jp:"くもり", kanji:"曇り", cn:"陰天"},
+      {id:"12-24", jp:"ホテル", kanji:"", cn:"飯店"},
+      {id:"12-25", jp:"くうこう", kanji:"空港", cn:"機場"},
+      {id:"12-26", jp:"うみ", kanji:"海", cn:"海"},
+      {id:"12-27", jp:"せかい", kanji:"世界", cn:"世界"},
+      {id:"12-28", jp:"パーティー", kanji:"", cn:"派對、宴會"},
+      {id:"12-29", jp:"おまつり", kanji:"お祭り", cn:"慶典、廟會"},
+      {id:"12-30", jp:"すきやき", kanji:"すき焼き", cn:"壽喜燒"},
+      {id:"12-31", jp:"さしみ", kanji:"刺身", cn:"生魚片"},
+      {id:"12-32", jp:"おすし", kanji:"お寿司", cn:"壽司"},
+      {id:"12-33", jp:"てんぷら", kanji:"", cn:"天婦羅"},
+      {id:"12-34", jp:"ぶたにく", kanji:"豚肉", cn:"豬肉"},
+      {id:"12-35", jp:"とりにく", kanji:"とり肉", cn:"雞肉"},
+      {id:"12-36", jp:"ぎゅうにく", kanji:"牛肉", cn:"牛肉"},
+      {id:"12-37", jp:"レモン", kanji:"", cn:"檸檬"},
+      {id:"12-38", jp:"いけばな", kanji:"生け花", cn:"插花"},
+      {id:"12-39", jp:"もみじ", kanji:"紅葉", cn:"楓葉"},
+      {id:"12-40", jp:"どちら", kanji:"", cn:"哪一邊、哪一個"},
+      {id:"12-41", jp:"どちらも", kanji:"", cn:"兩者都～"},
+      {id:"12-42", jp:"いちばん", kanji:"", cn:"最"},
+      {id:"12-43", jp:"ずっと", kanji:"", cn:"～得多"},
+      {id:"12-44", jp:"はじめて", kanji:"初めて", cn:"第一次、初次"},
+      {id:"12-45", jp:"ただいま", kanji:"", cn:"我回來了"},
+      {id:"12-46", jp:"おかえりなさい", kanji:"お帰りなさい", cn:"你回來啦"},
+      {id:"12-47", jp:"わあ、すごい ひとですね", kanji:"", cn:"哇・人好多啊"},
+      {id:"12-48", jp:"つかれました", kanji:"疲れました", cn:"（我）累了"},
+      {id:"12-49", jp:"ぎおんまつり", kanji:"祇園祭", cn:"祇園祭"},
+      {id:"12-50", jp:"ホンコン", kanji:"", cn:"香港"},
+      {id:"12-51", jp:"シンガポール", kanji:"", cn:"新加坡"},
+      {id:"12-52", jp:"エービーシーストア", kanji:"ABCストア", cn:"ABC商店"},
+      {id:"12-53", jp:"ジャパン", kanji:"", cn:"日本超市"}
+    ]
+  }
+];
+
+// ==================== State ====================
+let currentLessonId = "all";
+let mode = "match";
+let currentQueue = [];
+let currentIndex = 0;
+let matchItems = [];
+let selectedJP = null;
+let selectedCN = null;
+let matchBatchSize = 10;
+let wrongByLesson = {}; // { "1": Set, "2": Set, ..., "all": Set }
+let currentSpeakText = "";
+let currentAudio = null;
+
+// ==================== Persistence ====================
+function loadData() {
+  const savedWrong = localStorage.getItem("jpWrongMulti");
+  if (savedWrong) {
+    const obj = JSON.parse(savedWrong);
+    for (const k in obj) wrongByLesson[k] = new Set(obj[k]);
+  }
+  matchBatchSize = parseInt(localStorage.getItem("jpMatchBatchSize")) || 10;
+  if (![10, 20, 9999].includes(matchBatchSize)) matchBatchSize = 10;
+  updateWrongCount();
+}
+
+function saveWrong() {
+  const obj = {};
+  for (const k in wrongByLesson) obj[k] = [...wrongByLesson[k]];
+  localStorage.setItem("jpWrongMulti", JSON.stringify(obj));
+  updateWrongCount();
+}
+
+function getWrongSet(lessonId) {
+  if (!wrongByLesson[lessonId]) wrongByLesson[lessonId] = new Set();
+  return wrongByLesson[lessonId];
+}
+
+function updateWrongCount() {
+  const set = getWrongSet(currentLessonId);
+  document.getElementById("wrong-count").textContent = set.size;
+}
+
+function getActiveWords() {
+  if (currentLessonId === "all") {
+    return LESSONS.flatMap(l => l.words);
+  }
+  const lesson = LESSONS.find(l => l.id === currentLessonId);
+  return lesson ? lesson.words : [];
+}
+
+function getActiveWrongWords() {
+  const set = getWrongSet(currentLessonId);
+  return getActiveWords().filter(w => set.has(w.id));
+}
+
+// ==================== TTS ====================
+function speakJapanese(text) {
+  if (!text) return;
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  if (window.speechSynthesis) speechSynthesis.cancel();
+
+  // 優先使用瀏覽器內建語音（在 GitHub Pages 上可用）
+  if (window.speechSynthesis) {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "ja-JP";
+    u.rate = 0.85;          // 稍慢一點，高低音較清楚
+    u.pitch = 1.15;         // 提高音調，偏向女聲感覺
+
+    const voices = speechSynthesis.getVoices();
+    // 優先選擇女聲日文語音（包含 iOS 的 Kyoko）
+    const preferredNames = ["Kyoko", "Haruka", "Nanami", "Female", "女"];
+    let selected = null;
+    for (const name of preferredNames) {
+      selected = voices.find(vv => 
+        vv.lang && vv.lang.startsWith("ja") && 
+        vv.name && vv.name.includes(name)
+      );
+      if (selected) break;
+    }
+    // 如果沒找到明確女聲，就用任何日文語音
+    if (!selected) {
+      selected = voices.find(vv => vv.lang && vv.lang.startsWith("ja"));
+    }
+    if (selected) u.voice = selected;
+
+    speechSynthesis.speak(u);
+    return;
+  }
+
+  // 備用：Google TTS（本機開啟時可能可用）
+  const encoded = encodeURIComponent(text);
+  const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=ja&client=tw-ob&ttsspeed=0.85`;
+  const audio = new Audio(url);
+  currentAudio = audio;
+  audio.play().catch(() => {});
+}
+
+function speakCurrent() { if (currentSpeakText) speakJapanese(currentSpeakText); }
+
+function speakFromBtn(btn) {
+  const text = btn.getAttribute("data-speak");
+  if (text) speakJapanese(text);
+}
+
+// ==================== Core ====================
+function changeLesson(id) {
+  currentLessonId = id;
+  updateWrongCount();
+  startSession();
+}
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll("nav button").forEach(b => b.className = "px-4 py-2 rounded-full text-sm font-medium bg-gray-200");
+  document.getElementById("nav-" + m).className = "px-4 py-2 rounded-full text-sm font-medium bg-emerald-800 text-white";
+  startSession();
+}
+
+function startSession() {
+  const list = mode === "wrong" ? getActiveWrongWords() : getActiveWords();
+  if (list.length === 0) {
+    document.getElementById("content").innerHTML = `<div class="text-center py-16 text-gray-500"><p class="text-lg">${mode==="wrong"?"目前沒有錯題":"此課題沒有詞彙"}</p></div>`;
+    return;
+  }
+  currentQueue = shuffle(list);
+  currentIndex = 0;
+  updateStats();
+  render();
+}
+
+function updateStats() {
+  const total = getActiveWords().length;
+  const wrong = getWrongSet(currentLessonId).size;
+  document.getElementById("stats").textContent = `目前詞彙：${total}　|　錯題：${wrong}　|　進度：${currentIndex}/${currentQueue.length}`;
+}
+
+function shuffle(a) {
+  const arr = [...a];
+  for (let i = arr.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function getRandomJP(item) {
+  const forms = [item.jp];
+  if (item.kanji && item.kanji !== item.jp) forms.push(item.kanji);
+  return forms[Math.floor(Math.random()*forms.length)];
+}
+
+function render() {
+  if (mode === "editor") { renderEditor(); return; }
+  if (mode === "library") { renderLibrary(); return; }
+  if (mode === "match") renderMatch();
+  else renderFlashcard();
+}
+
+// ---------- Matching ----------
+function renderMatch() {
+  const batchSize = Math.min(matchBatchSize, currentQueue.length - currentIndex);
+  if (batchSize <= 0) {
+    document.getElementById("content").innerHTML = `<div class="text-center py-12"><p class="text-2xl text-emerald-700 mb-4">本輪完成！</p><button onclick="startSession()" class="px-6 py-3 bg-emerald-800 text-white rounded-xl">再來一輪</button></div>`;
+    return;
+  }
+  const batch = currentQueue.slice(currentIndex, currentIndex + batchSize);
+  matchItems = batch.map(item => ({...item, displayJP: getRandomJP(item)}));
+
+  const jpCards = shuffle(matchItems.map(i => ({id:i.id, text:i.displayJP})));
+  const cnCards = shuffle(matchItems.map(i => ({id:i.id, text:i.cn})));
+
+  document.getElementById("content").innerHTML = `
+    <div class="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-2 mb-4">
+      <h2 class="text-xl font-bold text-emerald-900">配對練習</h2>
+      <div class="flex items-center gap-2 text-sm">
+        <label>每組詞數：</label>
+        <select onchange="changeMatchBatchSize(this.value)" class="border rounded px-2 py-1">
+          <option value="10" ${matchBatchSize===10?"selected":""}>10</option>
+          <option value="20" ${matchBatchSize===20?"selected":""}>20</option>
+          <option value="9999" ${matchBatchSize>=9999?"selected":""}>全部</option>
+        </select>
+      </div>
+    </div>
+    <p class="text-center text-sm text-gray-500 mb-3">本組 ${batchSize} 題</p>
+    <div class="grid grid-cols-2 gap-3">
+      <div id="jp-col" class="space-y-2"></div>
+      <div id="cn-col" class="space-y-2"></div>
+    </div>
+    <div class="text-center mt-5"><button onclick="nextMatchBatch()" class="px-5 py-2 bg-gray-200 rounded-lg">跳過這組</button></div>
+  `;
+
+  const jpCol = document.getElementById("jp-col");
+  const cnCol = document.getElementById("cn-col");
+
+  jpCards.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "card p-3 border-2 border-emerald-200 rounded-xl text-center cursor-pointer hover:bg-emerald-50 jp";
+    el.textContent = c.text;
+    el.dataset.id = c.id;
+    el.dataset.type = "jp";
+    el.onclick = () => selectCard(el, c.id, "jp");
+    jpCol.appendChild(el);
+  });
+
+  cnCards.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "card p-3 border-2 border-amber-200 rounded-xl text-center cursor-pointer hover:bg-amber-50";
+    el.textContent = c.text;
+    el.dataset.id = c.id;
+    el.dataset.type = "cn";
+    el.onclick = () => selectCard(el, c.id, "cn");
+    cnCol.appendChild(el);
+  });
+}
+
+function selectCard(el, id, type) {
+  if (el.classList.contains("matched")) return;
+  document.querySelectorAll(`[data-type="${type}"]`).forEach(e => e.classList.remove("ring-4","ring-blue-400"));
+
+  if (type === "jp") {
+    selectedJP = id;
+    el.classList.add("ring-4","ring-blue-400");
+    // Auto play pronunciation when clicking Japanese
+    const item = matchItems.find(i => i.id === id);
+    if (item) speakJapanese(item.jp);
+  } else {
+    selectedCN = id;
+    el.classList.add("ring-4","ring-blue-400");
+  }
+
+  if (selectedJP && selectedCN) {
+    const wrongSet = getWrongSet(currentLessonId);
+    if (selectedJP === selectedCN) {
+      document.querySelectorAll(`[data-id="${selectedJP}"]`).forEach(e => {
+        e.classList.add("matched","correct");
+        e.classList.remove("ring-4","ring-blue-400");
+      });
+    } else {
+      document.querySelectorAll(`[data-id="${selectedJP}"],[data-id="${selectedCN}"]`).forEach(e => {
+        e.classList.add("wrong");
+        setTimeout(() => e.classList.remove("wrong","ring-4","ring-blue-400"), 700);
+      });
+      wrongSet.add(selectedJP);
+      wrongSet.add(selectedCN);
+      // also add to "all" if not already
+      getWrongSet("all").add(selectedJP);
+      getWrongSet("all").add(selectedCN);
+      saveWrong();
+    }
+    selectedJP = null;
+    selectedCN = null;
+    checkMatchComplete();
+  }
+}
+
+function checkMatchComplete() {
+  if (document.querySelectorAll(".card:not(.matched)").length === 0) {
+    setTimeout(() => {
+      currentIndex += matchItems.length;
+      updateStats();
+      renderMatch();
+    }, 500);
+  }
+}
+
+function nextMatchBatch() {
+  currentIndex += matchItems.length || 10;
+  if (currentIndex >= currentQueue.length) currentIndex = 0;
+  renderMatch();
+}
+
+function changeMatchBatchSize(v) {
+  matchBatchSize = parseInt(v) || 10;
+  localStorage.setItem("jpMatchBatchSize", matchBatchSize);
+  currentIndex = 0;
+  startSession();
+}
+
+// ---------- Flashcard ----------
+function renderFlashcard() {
+  if (currentIndex >= currentQueue.length) {
+    document.getElementById("content").innerHTML = `<div class="text-center py-12"><p class="text-2xl text-emerald-700 mb-4">本輪完成！</p><button onclick="startSession()" class="px-6 py-3 bg-emerald-800 text-white rounded-xl">再來一輪</button></div>`;
+    return;
+  }
+  const item = currentQueue[currentIndex];
+  const isJp2Cn = mode === "jp2cn" || (mode === "wrong" && Math.random() > 0.5);
+  currentSpeakText = item.jp;
+
+  const question = isJp2Cn
+    ? `<div class="flex flex-col items-center">
+         <div class="jp text-4xl md:text-5xl font-bold text-emerald-900">${item.kanji || item.jp}</div>
+         ${item.kanji ? `<div class="text-xl text-gray-500 mt-1">${item.jp}</div>` : ""}
+         <button onclick="speakCurrent()" class="mt-3 px-4 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-full text-sm">🔊 聽發音</button>
+       </div>`
+    : `<div class="text-3xl md:text-4xl font-bold text-amber-800">${item.cn}</div>`;
+
+  const answer = isJp2Cn
+    ? `<div class="text-2xl">${item.cn}</div>`
+    : `<div class="flex flex-col items-center">
+         <div class="jp text-3xl font-bold text-emerald-900">${item.kanji || item.jp}</div>
+         ${item.kanji ? `<div class="text-lg text-gray-500">${item.jp}</div>` : ""}
+         <button onclick="speakCurrent()" class="mt-3 px-4 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-full text-sm">🔊 聽發音</button>
+       </div>`;
+
+  document.getElementById("content").innerHTML = `
+    <div class="text-center">
+      <p class="text-sm text-gray-500 mb-5">${isJp2Cn ? "看日文想中文" : "看中文默寫日文"}　·　第 ${currentIndex+1} / ${currentQueue.length} 題</p>
+      <div class="min-h-[140px] flex items-center justify-center mb-6">${question}</div>
+      <div id="answer-area" class="min-h-[90px] mb-5 hidden"><div class="text-sm text-gray-500 mb-1">答案</div>${answer}</div>
+      <div class="space-y-3">
+        <button id="reveal-btn" onclick="revealAnswer()" class="w-full max-w-xs mx-auto block px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl">顯示答案</button>
+        <div id="mark-btns" class="hidden flex gap-3 justify-center">
+          <button onclick="markAnswer(true)" class="px-8 py-3 bg-green-600 text-white rounded-xl">我答對了</button>
+          <button onclick="markAnswer(false)" class="px-8 py-3 bg-red-500 text-white rounded-xl">我答錯了</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function revealAnswer() {
+  document.getElementById("answer-area").classList.remove("hidden");
+  document.getElementById("reveal-btn").classList.add("hidden");
+  document.getElementById("mark-btns").classList.remove("hidden");
+}
+
+function markAnswer(correct) {
+  const item = currentQueue[currentIndex];
+  const set = getWrongSet(currentLessonId);
+  const allSet = getWrongSet("all");
+  if (correct) {
+    set.delete(item.id);
+    allSet.delete(item.id);
+  } else {
+    set.add(item.id);
+    allSet.add(item.id);
+  }
+  saveWrong();
+  currentIndex++;
+  updateStats();
+  renderFlashcard();
+}
+
+// ---------- Library / 温習庫 ----------
+function renderLibrary() {
+  const words = getActiveWords();
+  if (words.length === 0) {
+    document.getElementById("content").innerHTML = `<div class="text-center py-16 text-gray-500">此課題沒有詞彙</div>`;
+    return;
+  }
+
+  const lessonName = currentLessonId === "all" ? "全部課題" : (LESSONS.find(l => l.id === currentLessonId)?.name || "");
+
+  let html = `
+    <h2 class="text-xl font-bold text-emerald-900 mb-1">温習庫</h2>
+    <p class="text-sm text-gray-500 mb-4">${lessonName}　·　共 ${words.length} 個詞</p>
+    <div class="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+  `;
+
+  words.forEach((w) => {
+    const displayJP = w.kanji 
+      ? `${w.kanji}<span class="text-gray-400 text-sm ml-2">(${w.jp})</span>` 
+      : w.jp;
+    html += `
+      <div class="flex items-center justify-between gap-3 p-3 border border-gray-100 rounded-xl hover:bg-emerald-50/40">
+        <div class="flex-1 min-w-0">
+          <div class="jp text-lg font-medium text-emerald-900">${displayJP}</div>
+          <div class="text-sm text-gray-600 mt-0.5">${w.cn}</div>
+        </div>
+        <button onclick="speakJapanese(this.dataset.speak)" data-speak="${w.jp}" 
+                class="flex-shrink-0 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-full text-sm whitespace-nowrap">
+          🔊 朗讀
+        </button>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  document.getElementById("content").innerHTML = html;
+}
+
+function renderEditor() {
+  document.getElementById("content").innerHTML = `
+    <h2 class="text-xl font-bold mb-3 text-emerald-900">詞彙管理 / 資料備份</h2>
+    <p class="text-sm text-gray-600 mb-4">手機上直接開啟 HTML 檔時，錯題庫可能無法長期保存。建議定期匯出錯題庫備份。</p>
+    
+    <div class="space-y-3 mb-6">
+      <button onclick="exportWrong()" class="w-full max-w-xs px-4 py-2.5 bg-emerald-700 text-white rounded-xl text-sm">匯出錯題庫（備份）</button>
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">匯入錯題庫：</label>
+        <input type="file" id="import-file" accept=".json" onchange="importWrong(this)" class="text-sm">
+      </div>
+    </div>
+
+    <div class="text-sm text-gray-500">
+      <p>目前詞彙已內建第1～12課。若要修改詞彙，可直接編輯此 HTML 檔案中的 LESSONS 陣列。</p>
+    </div>
+  `;
+}
+
+function exportWrong() {
+  const obj = {};
+  for (const k in wrongByLesson) {
+    obj[k] = [...wrongByLesson[k]];
+  }
+  const data = JSON.stringify(obj, null, 2);
+  const blob = new Blob([data], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "japanese-wrong-bank-backup.json";
+  a.click();
+  URL.revokeObjectURL(url);
+  alert("錯題庫已匯出，請保存這個 JSON 檔案。");
+}
+
+function importWrong(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const obj = JSON.parse(e.target.result);
+      wrongByLesson = {};
+      for (const k in obj) {
+        wrongByLesson[k] = new Set(obj[k]);
+      }
+      saveWrong();
+      updateWrongCount();
+      alert("錯題庫匯入成功！");
+      if (mode === "wrong") startSession();
+    } catch (err) {
+      alert("匯入失敗，檔案格式不正確。");
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ==================== Init ====================
+loadData();
+document.getElementById("lesson-select").value = currentLessonId;
+setMode("match");
+</script>
+</body>
+</html>
